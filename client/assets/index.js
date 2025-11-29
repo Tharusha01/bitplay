@@ -65,8 +65,10 @@ class QualityMenuItem extends MenuItem {
 
   handleClick(event) {
     super.handleClick(event);
-    const menuItems = this.player().qualityMenuButton.items;
-    menuItems.forEach(item => item.selected(false));
+    const qualityButton = this.player().qualityMenuButton;
+    if (qualityButton && qualityButton.items) {
+      qualityButton.items.forEach(item => item.selected(false));
+    }
     this.selected(true);
     
     const currentTime = this.player().currentTime();
@@ -98,10 +100,37 @@ class QualityMenuButton extends MenuButton {
 
   createEl() {
     const el = super.createEl();
-    // Add custom icon using SVG
+    // Add custom icon using SVG - create elements safely
     const icon = el.querySelector('.vjs-icon-placeholder');
     if (icon) {
-      icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 24px; height: 24px;"><path d="M15.5 13a3.5 3.5 0 0 0 0-7H11v7h4.5Z"></path><path d="M4 20h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"></path><path d="M6 13h5"></path><path d="M8.5 13v-2.5"></path></svg>`;
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', '0 0 24 24');
+      svg.setAttribute('fill', 'none');
+      svg.setAttribute('stroke', 'currentColor');
+      svg.setAttribute('stroke-width', '2');
+      svg.setAttribute('stroke-linecap', 'round');
+      svg.setAttribute('stroke-linejoin', 'round');
+      svg.style.width = '24px';
+      svg.style.height = '24px';
+      
+      const path1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path1.setAttribute('d', 'M15.5 13a3.5 3.5 0 0 0 0-7H11v7h4.5Z');
+      
+      const path2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path2.setAttribute('d', 'M4 20h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z');
+      
+      const path3 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path3.setAttribute('d', 'M6 13h5');
+      
+      const path4 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path4.setAttribute('d', 'M8.5 13v-2.5');
+      
+      svg.appendChild(path1);
+      svg.appendChild(path2);
+      svg.appendChild(path3);
+      svg.appendChild(path4);
+      
+      icon.appendChild(svg);
     }
     return el;
   }
@@ -372,7 +401,7 @@ videojs.registerComponent('QualityMenuButton', QualityMenuButton);
       player.qualityMenuButton = qualityButton;
       // Insert quality button before picture-in-picture toggle
       const pipIndex = player.controlBar.children().findIndex(c => c.name() === 'PictureInPictureToggle');
-      if (pipIndex > 0) {
+      if (pipIndex >= 0) {
         player.controlBar.el().insertBefore(
           qualityButton.el(),
           player.controlBar.children()[pipIndex].el()
