@@ -52,6 +52,79 @@ function doubleTapFF(options) {
 }
 videojs.registerPlugin('doubleTapFF', doubleTapFF);
 
+// Custom Quality Menu Button for Video.js
+const MenuButton = videojs.getComponent('MenuButton');
+const MenuItem = videojs.getComponent('MenuItem');
+
+// Quality Menu Item
+class QualityMenuItem extends MenuItem {
+  constructor(player, options) {
+    super(player, options);
+    this.selected(options.selected);
+  }
+
+  handleClick(event) {
+    super.handleClick(event);
+    const menuItems = this.player().qualityMenuButton.items;
+    menuItems.forEach(item => item.selected(false));
+    this.selected(true);
+    
+    const currentTime = this.player().currentTime();
+    const isPaused = this.player().paused();
+    
+    this.player().src({
+      src: this.options_.src,
+      type: this.options_.type || 'video/mp4'
+    });
+    
+    this.player().one('loadedmetadata', () => {
+      this.player().currentTime(currentTime);
+      if (!isPaused) {
+        this.player().play();
+      }
+    });
+  }
+}
+videojs.registerComponent('QualityMenuItem', QualityMenuItem);
+
+// Quality Menu Button
+class QualityMenuButton extends MenuButton {
+  constructor(player, options) {
+    super(player, options);
+    this.controlText('Quality');
+    this.addClass('vjs-quality-button');
+    this.items = [];
+  }
+
+  createEl() {
+    const el = super.createEl();
+    // Add custom icon using SVG
+    const icon = el.querySelector('.vjs-icon-placeholder');
+    if (icon) {
+      icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 24px; height: 24px;"><path d="M15.5 13a3.5 3.5 0 0 0 0-7H11v7h4.5Z"></path><path d="M4 20h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"></path><path d="M6 13h5"></path><path d="M8.5 13v-2.5"></path></svg>`;
+    }
+    return el;
+  }
+
+  createItems() {
+    const sources = this.options_.sources || [];
+    this.items = sources.map((source, index) => {
+      return new QualityMenuItem(this.player(), {
+        label: source.label || source.title || `Quality ${index + 1}`,
+        src: source.src,
+        type: source.type,
+        selected: index === 0
+      });
+    });
+    return this.items;
+  }
+
+  buildCSSClass() {
+    return `vjs-menu-button vjs-menu-button-popup ${super.buildCSSClass()}`;
+  }
+}
+videojs.registerComponent('QualityMenuButton', QualityMenuButton);
+
 (async function ($) {
   // toggle dark mode button
   const toggleDarkMode = () => {
@@ -248,6 +321,19 @@ videojs.registerPlugin('doubleTapFF', doubleTapFF);
         html5: {
           nativeTextTracks: false
         },
+        controlBar: {
+          children: [
+            'playToggle',
+            'currentTimeDisplay',
+            'timeDivider',
+            'durationDisplay',
+            'progressControl',
+            'volumePanel',
+            'subsCapsButton',
+            'pictureInPictureToggle',
+            'fullscreenToggle'
+          ]
+        },
         plugins: {
           hotkeys: {
             volumeStep: 0.1,
@@ -273,6 +359,27 @@ videojs.registerPlugin('doubleTapFF', doubleTapFF);
     );
     player.doubleTapFF();
 
+    // Add quality menu button if multiple video files exist
+    if (videoUrls.length > 1) {
+      const qualityButton = player.controlBar.addChild('QualityMenuButton', {
+        sources: videoUrls.map((video, index) => ({
+          src: video.src,
+          type: video.type,
+          label: video.title,
+          title: video.title
+        }))
+      });
+      player.qualityMenuButton = qualityButton;
+      // Insert quality button before picture-in-picture toggle
+      const pipIndex = player.controlBar.children().findIndex(c => c.name() === 'PictureInPictureToggle');
+      if (pipIndex > 0) {
+        player.controlBar.el().insertBefore(
+          qualityButton.el(),
+          player.controlBar.children()[pipIndex].el()
+        );
+      }
+    }
+
     document.querySelector("#video-player").style.display = "block";
     // scroll to video player
     setTimeout(() => {
@@ -280,28 +387,6 @@ videojs.registerPlugin('doubleTapFF', doubleTapFF);
         top: document.body.scrollHeight,
         behavior: "smooth",
       });
-
-      if (videoUrls.length > 1) {
-        const videoSelect = document.createElement("select");
-        videoSelect.setAttribute("id", "video-select");
-        videoSelect.setAttribute("class", "video-select");
-        videoSelect.setAttribute("aria-label", "Select video");
-        videoUrls.forEach((video) => {
-          const option = document.createElement("option");
-          option.setAttribute("value", video.src);
-          option.innerHTML = video.title;
-          videoSelect.appendChild(option);
-        });
-        videoSelect.addEventListener("change", (e) => {
-          const selectedSrc = e.target.value;
-          player.src({
-            src: selectedSrc,
-            type: "video/mp4",
-          });
-          player.play();
-        });
-        document.querySelector("#video-player").appendChild(videoSelect);
-      }
       player.play()
     }, 300);
 
